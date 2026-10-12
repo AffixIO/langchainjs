@@ -121,3 +121,6 @@ export function createAffixioLocalAuthorizer<TSdk extends {
     return { allow, proof: { proved, verified }, reason: allow ? undefined : "local proof verification failed" };
   };
 }
+
+export { createAffixioMcpGate } from "./mcp.js";
+export type { McpGateInput, McpGateResult } from "./mcp.js";

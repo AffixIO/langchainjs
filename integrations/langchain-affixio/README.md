@@ -6,6 +6,27 @@ Optional execution-boundary authorization middleware for LangChain.js. This is a
 
 `LangChain agent -> wrapToolCall -> AffixIO decision -> ALLOW/DENY -> tool`
 
+For MCP servers, add the existing SDK gate at the server boundary as well:
+
+```ts
+import { AffixSDK, spendingPolicy } from "affixio";
+import { createAffixioMcpGate } from "@affixio/langchain-authorization";
+
+const gate = createAffixioMcpGate({
+  sdk: new AffixSDK({ apiKey: process.env.AFFIXIO_API_KEY! }),
+  policy: spendingPolicy({ currency: "GBP", maxPerAction: 100 }),
+  action: "mcp_tool_call",
+  amount: 0,
+  currency: "GBP",
+  mode: "online",
+});
+
+await gate("refund_order");
+await server.callTool("refund_order", args);
+```
+
+The MCP call must not proceed if `gate()` throws. This produces a defense-in-depth flow: LangChain middleware protects the agent runtime, and the MCP gate protects the server-side tool boundary.
+
 The middleware awaits the decision before calling LangChain's handler. A denial, malformed response, thrown verifier error, timeout, or unavailable verifier returns an error `ToolMessage` and never invokes the protected tool. Tools not selected by `protectedTools` retain normal behavior.
 
 ## Usage
