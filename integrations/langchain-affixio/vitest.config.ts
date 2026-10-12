@@ -1,2 +1,12 @@
 import { defineConfig } from "vitest/config";
-export default defineConfig({ test: { environment: "node" } });
+import { resolve } from "node:path";
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      langchain: resolve(__dirname, "test/langchain-shim.ts"),
+      "@langchain/core/messages": resolve(__dirname, "test/core-shim.ts"),
+    },
+  },
+  test: { environment: "node" },
+});
