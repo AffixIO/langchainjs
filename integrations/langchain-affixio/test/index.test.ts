@@ -96,4 +96,42 @@ describe("AffixIO LangChain execution boundary", () => {
     await middleware.wrapToolCall!(request("delete", { id: "record-1" }), handler as never);
     expect(handler).not.toHaveBeenCalled();
   });
+
+  it("never starts the handler before the decision promise resolves", async () => {
+    let release!: (value: { allow: boolean }) => void;
+    let decided = false;
+    const authorize = vi.fn(() => new Promise<{ allow: boolean }>((resolve) => { release = resolve; }));
+    const guardedHandler = vi.fn(async () => {
+      expect(decided).toBe(true);
+      return { type: "tool", content: "ok", tool_call_id: "call-1" };
+    });
+    const middleware = createAffixioMiddleware({ authorize });
+    const pending = middleware.wrapToolCall!(request("pay", { amount: 1 }), guardedHandler as never);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(guardedHandler).not.toHaveBeenCalled();
+    decided = true;
+    release({ allow: true });
+    await pending;
+    expect(guardedHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not execute twice when the handler rejects", async () => {
+    const guardedHandler = vi.fn(async () => { throw new Error("tool failure"); });
+    const middleware = createAffixioMiddleware({ authorize: async () => ({ allow: true }) });
+    await expect(middleware.wrapToolCall!(request("charge", { amount: 10 }), guardedHandler as never)).rejects.toThrow("tool failure");
+    expect(guardedHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps protected and unprotected calls independent", async () => {
+    const authorize = vi.fn(async (action) => ({ allow: action.toolName === "read" }));
+    const middleware = createAffixioMiddleware({ authorize, protectedTools: ["pay", "delete"] });
+    const readHandler = vi.fn(async () => ({ type: "tool", content: "read", tool_call_id: "r" }));
+    const payHandler = vi.fn(async () => ({ type: "tool", content: "pay", tool_call_id: "p" }));
+    await middleware.wrapToolCall!(request("read", {}), readHandler as never);
+    await middleware.wrapToolCall!(request("pay", {}), payHandler as never);
+    expect(readHandler).toHaveBeenCalledTimes(1);
+    expect(payHandler).not.toHaveBeenCalled();
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect(authorize).toHaveBeenCalledWith(expect.objectContaining({ toolName: "pay" }));
+  });
 });
