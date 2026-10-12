@@ -99,3 +99,25 @@ export function createAffixioSdkAuthorizer<TSdk extends {
     return { allow, proof: result, reason: allow ? undefined : "AffixIO proof verification failed" };
   };
 }
+
+/**
+ * Creates a local fail-closed authorizer from the documented SDK prove and
+ * verifyLocal methods. This path does not require a live API round trip.
+ */
+export function createAffixioLocalAuthorizer<TSdk extends {
+  prove(input: unknown): Promise<{ proof_hex?: string; proof?: string; envelope?: unknown; decision?: "yes" | "no" }>;
+  verifyLocal(circuitId: string, proof: string, options?: { envelope?: unknown }): Promise<{ valid?: boolean; verified?: boolean; decision?: "yes" | "no" }>;
+}>(
+  sdk: TSdk,
+  buildInput: (action: AffixioAction) => { circuitId: string; [key: string]: unknown }
+): AffixioAuthorizer {
+  return async (action) => {
+    const input = buildInput(action);
+    const proved = await sdk.prove(input);
+    const proof = proved.proof_hex ?? proved.proof;
+    if (!proof) throw new Error("AffixIO did not return a proof");
+    const verified = await sdk.verifyLocal(input.circuitId, proof, { envelope: proved.envelope });
+    const allow = verified.valid === true && verified.verified === true && verified.decision === "yes";
+    return { allow, proof: { proved, verified }, reason: allow ? undefined : "local proof verification failed" };
+  };
+}

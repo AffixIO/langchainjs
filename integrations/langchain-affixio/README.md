@@ -28,6 +28,8 @@ const agent = createAgent({ model, tools: [buyItem], middleware: [middleware] })
 
 For the documented SDK proof path, pass an `AffixSDK` instance and a policy-specific input builder to `createAffixioSdkAuthorizer`. It calls the real `sdk.proveAndVerify(input)` method and allows only when both `verify.valid` and `verify.verified` are true and the proof decision is `yes`.
 
+For a local execution boundary, use `createAffixioLocalAuthorizer`. It calls the real `sdk.prove()` and `sdk.verifyLocal()` methods and fails closed if either step fails. Use an ML-DSA or UltraHonk configuration for an untrusted verifier; HMAC verification is for trusted server-side processes only.
+
 ```ts
 import { AffixSDK } from "affixio";
 import { createAffixioSdkAuthorizer } from "@affixio/langchain-authorization";
