@@ -58,4 +58,42 @@ describe("AffixIO LangChain execution boundary", () => {
     await middleware.wrapToolCall!(request("ship", { sku: "x" }), handler as never);
     expect(onDecision).toHaveBeenCalledWith(expect.objectContaining({ toolName: "ship" }), { allow: true });
   });
+
+  it("passes the exact arguments to authorization before execution", async () => {
+    const args = Object.freeze({ amount: 42.35, recipient: "merchant-a" });
+    const authorize = vi.fn(async (action) => ({
+      allow: action.args === args,
+      proof: { actionDigest: "bound-to-exact-object" },
+    }));
+    const middleware = createAffixioMiddleware({ authorize });
+    await middleware.wrapToolCall!(request("pay", args), handler as never);
+    expect(authorize).toHaveBeenCalledWith(expect.objectContaining({ args }));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates concurrent decisions and blocks the denied call", async () => {
+    const calls: string[] = [];
+    const authorize = vi.fn(async (action) => {
+      await new Promise((resolve) => setTimeout(resolve, action.args === "deny" ? 10 : 1));
+      calls.push(String(action.args));
+      return { allow: action.args !== "deny" };
+    });
+    const middleware = createAffixioMiddleware({ authorize });
+    const allowed = vi.fn(async () => ({ type: "tool", content: "allowed", tool_call_id: "a" }));
+    const deniedHandler = vi.fn(async () => ({ type: "tool", content: "denied", tool_call_id: "b" }));
+    await Promise.all([
+      middleware.wrapToolCall!(request("pay", "allow"), allowed as never),
+      middleware.wrapToolCall!(request("pay", "deny"), deniedHandler as never),
+    ]);
+    expect(calls.sort()).toEqual(["allow", "deny"]);
+    expect(allowed).toHaveBeenCalledTimes(1);
+    expect(deniedHandler).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a verifier that returns a proof without a decision", async () => {
+    const authorize = vi.fn(async () => ({ proof: { valid: true } } as never));
+    const middleware = createAffixioMiddleware({ authorize });
+    await middleware.wrapToolCall!(request("delete", { id: "record-1" }), handler as never);
+    expect(handler).not.toHaveBeenCalled();
+  });
 });
