@@ -1,0 +1,39 @@
+{
+  "name": "@affixio/langchain-authorization",
+  "version": "0.1.0",
+  "description": "Optional execution-boundary authorization middleware for LangChain.js using AffixIO decisions.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "peerDependencies": {
+    "affixio": "2.0.3",
+    "langchain": ">=1.5.0"
+  },
+  "devDependencies": {
+    "@langchain/core": "^1.2.17",
+    "affixio": "2.0.3",
+    "langchain": "^1.5.16",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "peerDependenciesMeta": {
+    "langchain": {
+      "optional": false
+    }
+  }
+}
