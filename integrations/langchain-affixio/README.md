@@ -17,7 +17,7 @@ import { createAffixioMiddleware } from "@affixio/langchain-authorization";
 const middleware = createAffixioMiddleware({
   protectedTools: ["buy_item"],
   authorize: async ({ toolName, toolCallId, args, context }) => {
-    // Call the documented AffixIO 2.0.3 SDK/API here. Keep this function
+    // Call the documented AffixIO 2.0.4 SDK/API here. Keep this function
     // responsible for returning the verified decision and proof metadata.
     return affixio.verify({ toolName, toolCallId, args, context });
   },
@@ -34,15 +34,15 @@ import { createAffixioSdkAuthorizer } from "@affixio/langchain-authorization";
 
 const sdk = new AffixSDK({ apiKey: process.env.AFFIXIO_API_KEY! });
 const authorize = createAffixioSdkAuthorizer(sdk, (action) => ({
-  circuitId: "your-policy-circuit",
-  fields: { tool: action.toolName, tool_call_id: action.toolCallId },
-  policy: yourPolicy,
-  mode: "online",
+  circuitId: "simple_yesno",
+  fields: { a: "0x1" },
+  policy: { tool: action.toolName, tool_call_id: action.toolCallId },
+  mode: "offline",
   origin: "langchain",
 }));
 ```
 
-The package deliberately accepts an authorizer rather than inventing an AffixIO endpoint or response schema. The authorizer can use `AffixSDK.prove`, `AffixSDK.verifyLocal`, attestation verification, a local policy service, or a separately configured API flow supported by the installed AffixIO version. API keys remain with the AffixIO client and are never sent to LangChain tools.
+The package deliberately accepts an authorizer rather than inventing an AffixIO endpoint or response schema. AffixIO 2.0.4 bundles `simple_yesno` and `yesno`; `simple_yesno` is the smallest suitable decision circuit and uses the documented `a` witness field. Server-attested flows should use the API's server-prove and proof-attest sequence for a named circuit. API keys remain with the AffixIO client and are never sent to LangChain tools.
 
 ## Scope and limitations
 
